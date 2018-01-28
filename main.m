@@ -10,7 +10,7 @@ slope_bias = 999.9*ones(length(filenames), 2); % data matrix, placeholder value 
 for i = 1:length(filenames)
   datafile = filenames(i);
   fname    = strcat(datafile.folder, '/', datafile.name);
-  
+
   if contains(fname, 'RWHEEL') % skip reaction wheel tests
     continue
   end
@@ -89,10 +89,8 @@ for i = 1:length(filenames)
       idx = (1000*current > current_min) & (base_speed < 3500); % 100 mA
 
       ylim([0, max([1000*current(idx); base_speed(idx)])]);
-      plot(time(idx), 1000*current(idx), 'DisplayName', 'current (mA)');
-      plot(time(idx), base_speed(idx),   'DisplayName', 'base speed');
-      % scatter(time(idx), 1000*current(idx), '.', 'DisplayName', 'current (mA)');
-      % scatter(time(idx), base_speed(idx), '.', 'DisplayName', 'base speed');
+      scatter(time(idx), 1000*current(idx), '.', 'DisplayName', 'current (mA)');
+      scatter(time(idx), base_speed(idx), '.', 'DisplayName', 'base speed');
       legend('show', 'location', 'northwest');
       title(escape(datafile.name));
       print(['img/', datafile.name, '-img'], '-dpng')

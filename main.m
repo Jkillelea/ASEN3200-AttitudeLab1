@@ -2,6 +2,7 @@
 % Jacob Killelea
 clear; clc; close all;
 
+[~, ~, ~] = mkdir('img');
 filenames = dir('./data/AM*'); % our data
 
 slope_bias_spread   = 999.9*ones(length(filenames), 3); % data matrix, placeholder value of 999.9
@@ -30,17 +31,14 @@ for i = 1:length(filenames)
 
   % fit a line to the slope
   p = polyfit(omega, gyro, 1); % [slope, offset]
-  slope_bias_spread(i, 1:2) = p; % save slope and offset
-
-  figure; hold on; grid on;
-  scatter(omega, gyro, '.');
-
   f = @(x) p(1)*x + p(2); % line fit function
-  plot(omega, f(omega), 'linewidth', 2);
 
-  slope = p(1);
-  theta = atan(slope);
+  slope_bias_spread(i, 1:2) = p; % save slope and offset
+  slope = p(1); % used in a sec, but p will be reassigned before that so we need to keep this
 
+  % Since the data skews to either side of the linear fit, I'm separting it
+  % out into the section above and below the linear fit line and doing a polynomial
+  % fit on each of those.
   low_idx  = gyro < f(omega);
   high_idx = gyro > f(omega);
 
@@ -48,21 +46,31 @@ for i = 1:length(filenames)
   high_omega = tmp(:, 1);
   high_gyro  = tmp(:, 2);
   p = polyfit(high_omega, high_gyro, 2);
-  h = @(x) p(1).*(x.^2) + p(2).*x + p(3);
+  h = @(x) p(1).*(x.^2) + p(2).*x + p(3); % polynomial function for the high side
 
   tmp = sortrows([omega(low_idx), gyro(low_idx)]);
   low_omega = tmp(:, 1);
   low_gyro  = tmp(:, 2);
   p = polyfit(low_omega, low_gyro, 2);
-  l = @(x) p(1).*(x.^2) + p(2).*x + p(3);
+  l = @(x) p(1).*(x.^2) + p(2).*x + p(3); % polynomial function for the low side
 
+  % What we want to measure is the distance between the data and the linear fit
+  % in the direction perpendicular to the slope. To do this, I'm first finding the
+  % vertical difference from the linear fit and then using a right triangle
+  % to find the distance in the direction we want.
+  theta = atan(slope);
   diff_high = abs(h(0) - f(0));
   diff_low  = abs(l(0) - f(0));
   delta_h   = diff_high*cos(theta);
   delta_l   = diff_low*cos(theta);
   spread    = delta_h + delta_l;
-  slope_bias_spread(i, 3) = spread;
+  slope_bias_spread(i, 3) = spread; % store this number
 
+  figure; hold on; grid on;
+  scatter(omega, gyro, '.');
+  plot(omega, f(omega), 'linewidth', 2);
+  plot(high_omega, h(high_omega), 'g', 'linewidth', 1);
+  plot(low_omega, l(low_omega), 'b');
   title(escape(datafile.name));
   xlabel('Base movement \omega (rad/s)');
   ylabel('gyro movement (deg/sec)');
@@ -108,6 +116,8 @@ for i = 1:length(filenames)
   % MATLAB has no mechanism to retry a try/catch block
   % so this is all wrapped in a 'while' loop that we'll break if everything
   % goes right. If there's an error, we loop back to the start.
+  % UPDATE: most of this error handling is totally pointless now that we're only
+  %         looking at our own data
   figure; hold on; grid on;
   current_min = 200;
   while true
@@ -122,7 +132,7 @@ for i = 1:length(filenames)
       % linear fit
       p = polyfit(time(idx), rwheel_speed(idx), 1);
       f = @(x) p(1)*x + p(2);
-      plot(time(idx), f(time(idx)), 'DisplayName', 'fit line')
+      % plot(time(idx), f(time(idx)), 'DisplayName', 'fit line')
 
       torque = mean(actual_torque(idx));
       alpha  = p(1);

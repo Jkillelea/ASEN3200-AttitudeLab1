@@ -30,29 +30,9 @@ for i = 1:length(filenames)
   slope_bias(i, 1:2) = p; % save slope and offset
   fprintf('%30s | %.3f | %.3f\n', datafile.name, p(1), p(2));
 
-  % Since the data skews to either side of the linear fit, I'm separting it
-  % out into the section above and below the linear fit line and doing a polynomial
-  % fit on each of those.
-  low_idx  = gyro < f(omega);
-  high_idx = gyro > f(omega);
-
-  tmp = sortrows([omega(high_idx), gyro(high_idx)]);
-  high_omega = tmp(:, 1);
-  high_gyro  = tmp(:, 2);
-  p = polyfit(high_omega, high_gyro, 2);
-  h = @(x) p(1).*(x.^2) + p(2).*x + p(3); % polynomial function for the high side
-
-  tmp = sortrows([omega(low_idx), gyro(low_idx)]);
-  low_omega = tmp(:, 1);
-  low_gyro  = tmp(:, 2);
-  p = polyfit(low_omega, low_gyro, 2);
-  l = @(x) p(1).*(x.^2) + p(2).*x + p(3); % polynomial function for the low side
-
   figure; hold on; grid on;
   scatter(omega, gyro, '.');
   plot(omega, f(omega), 'linewidth', 2);
-  plot(high_omega, h(high_omega), 'g', 'linewidth', 1);
-  plot(low_omega, l(low_omega), 'b');
   title(escape(datafile.name));
   xlabel('Base movement \omega (rad/s)');
   ylabel('gyro movement (deg/sec)');

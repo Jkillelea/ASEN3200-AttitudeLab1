@@ -73,7 +73,6 @@ for i = 1:length(filenames)
   gyro  = gyro(idx);
   omega = omega(gyro); % apply correct factor
 
-
   % each theta at a given t is an integral of omega from the beginning of measurement
   % to that time t, so we have to perform a ton of integrals here
   f = fit(time, omega, 'smoothingspline');
@@ -103,56 +102,35 @@ for i = 1:length(filenames)
     continue
   end
 
-  try
-    % Time [ms]  Commanded Torque [mNm]  Base Speed [rpm]  Actual Current [Amp]
-    % Should base be changed to reaction wheel? We held the base stationary for this test...
-    data       = load(fname);
-    time       = data(:, 1);
-    torque     = data(:, 2);
-    rwheel_speed = rpm2rads(data(:, 3)); % radians per second
-    current    = data(:, 4);
-  catch exception
-    fprintf(2, '[ERROR]: %s - %s\n', datafile.name, exception.message);
-    continue
-  end
+  % Time [ms]  Commanded Torque [mNm]  Base Speed [rpm]  Actual Current [Amp]
+  % Should base be changed to reaction wheel? We held the base stationary for this test...
+  data       = load(fname);
+  time       = data(:, 1);
+  torque     = data(:, 2);
+  rwheel_speed = rpm2rads(data(:, 3)); % radians per second
+  current    = data(:, 4);
 
   % reaction wheel has a torque constant of 33.5 mNm/A
   actual_torque = current*33.5/1000; % Nm
 
-  % Attempt to only plot where the motor is over 100mA.
-  % On some trials the motor doesn't ever reach that
-  % so we plot where it's only at 50mA or 25mA or 12.5mA....
-  % MATLAB has no mechanism to retry a try/catch block
-  % so this is all wrapped in a 'while' loop that we'll break if everything
-  % goes right. If there's an error, we loop back to the start.
-  % UPDATE: most of this error handling is totally pointless now that we're only
-  %         looking at our own data
   figure; hold on; grid on;
   current_min = 200;
-  while true
-    try
-      idx = (1000*current > current_min) & (rwheel_speed < rpm2rads(3500)); % 100 mA, motor not over 3500 RPM
 
-      ylim([0, max([1000*current(idx); rwheel_speed(idx)])]);
-      scatter(time(idx), 1000*current(idx), '.', 'DisplayName', 'current (mA)');
-      scatter(time(idx), rwheel_speed(idx), '.', 'DisplayName', 'reaction wheel speed (rad/s)');
+  idx = (1000*current > current_min) & (rwheel_speed < rpm2rads(3500)); % 100 mA, motor not over 3500 RPM
 
-      % linear fit
-      p = polyfit(time(idx), rwheel_speed(idx), 1);
-      f = @(x) p(1)*x + p(2);
-      % plot(time(idx), f(time(idx)), 'DisplayName', 'fit line')
+  ylim([0, max([1000*current(idx); rwheel_speed(idx)])]);
+  scatter(time(idx), 1000*current(idx), '.', 'DisplayName', 'current (mA)');
+  scatter(time(idx), rwheel_speed(idx), '.', 'DisplayName', 'reaction wheel speed (rad/s)');
 
-      torque = mean(actual_torque(idx));
-      alpha  = p(1);
-      I      = torque/alpha;
+  % linear fit
+  p = polyfit(time(idx), rwheel_speed(idx), 1);
+  f = @(x) p(1)*x + p(2);
+  % plot(time(idx), f(time(idx)), 'DisplayName', 'fit line')
 
-      break;
-    catch
-      current_min = current_min/2;
-      fprintf('retrying %s at minimum %.2f mA\n', datafile.name, current_min);
-    end
-  end
-
+  torque = mean(actual_torque(idx));
+  alpha  = p(1);
+  I      = torque/alpha;
+  
   xlabel('Time [ms]');
   title(escape(datafile.name));
   legend('show', 'location', 'southeast');

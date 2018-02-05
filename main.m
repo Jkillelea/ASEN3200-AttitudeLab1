@@ -5,7 +5,7 @@ clear; clc; close all;
 [~, ~, ~] = mkdir('img');
 filenames = dir('./data/AM*'); % our data
 
-slope_bias_spread   = 999.9*ones(length(filenames), 3); % data matrix, placeholder value of 999.9
+slope_bias_spread   = 999.9*ones(length(filenames), 2); % data matrix, placeholder value of 999.9
 moments_of_intertia = 999.9*ones(length(filenames), 1); % data matrix, placeholder value of 999.9
 
 for i = 1:length(filenames)
@@ -54,18 +54,6 @@ for i = 1:length(filenames)
   p = polyfit(low_omega, low_gyro, 2);
   l = @(x) p(1).*(x.^2) + p(2).*x + p(3); % polynomial function for the low side
 
-  % What we want to measure is the distance between the data and the linear fit
-  % in the direction perpendicular to the slope. To do this, I'm first finding the
-  % vertical difference from the linear fit and then using a right triangle
-  % to find the distance in the direction we want.
-  theta = atan(slope);
-  diff_high = abs(h(0) - f(0));
-  diff_low  = abs(l(0) - f(0));
-  delta_h   = diff_high*cos(theta);
-  delta_l   = diff_low*cos(theta);
-  spread    = delta_h + delta_l;
-  slope_bias_spread(i, 3) = spread; % store this number
-
   figure; hold on; grid on;
   scatter(omega, gyro, '.');
   plot(omega, f(omega), 'linewidth', 2);
@@ -80,9 +68,10 @@ end
 
 % remove unused rows
 slope_bias_spread = slope_bias_spread(slope_bias_spread(:, 1) ~= 999.9, :);
-fprintf('Slope: %f deg/s per rad/s, sigma %f\n',   mean(slope_bias_spread(:, 1)), std(slope_bias_spread(:, 1)));
-fprintf('Offest: %f deg/s at 0 rad/s, sigma %f\n', mean(slope_bias_spread(:, 2)), std(slope_bias_spread(:, 2)));
-fprintf('Spread: %f deg/s at 0 rad/s, sigma %f\n', mean(slope_bias_spread(:, 3)), std(slope_bias_spread(:, 3)));
+fprintf('Slope: %f deg/s per rad/s, sigma %f\n',   mean(slope_bias_spread(:, 1)), ...
+                                                    std(slope_bias_spread(:, 1)));
+fprintf('Offest: %f deg/s at 0 rad/s, sigma %f\n', mean(slope_bias_spread(:, 2)), ...
+                                                    std(slope_bias_spread(:, 2)));
 disp(' ');
 
 %  reaction wheel tests

@@ -5,7 +5,7 @@ clear; clc; close all;
 [~, ~, ~] = mkdir('img');
 filenames = dir('./data/AM*'); % our data
 
-slope_bias_spread   = 999.9*ones(length(filenames), 2); % data matrix, placeholder value of 999.9
+slope_bias   = 999.9*ones(length(filenames), 2); % data matrix, placeholder value of 999.9
 moments_of_intertia = 999.9*ones(length(filenames), 1); % data matrix, placeholder value of 999.9
 
 fprintf('%30s | slope  | bias\n', 'name');
@@ -27,7 +27,7 @@ for i = 1:length(filenames)
   p = polyfit(omega, gyro, 1); % [slope, offset]
   f = @(x) p(1)*x + p(2); % line fit function
 
-  slope_bias_spread(i, 1:2) = p; % save slope and offset
+  slope_bias(i, 1:2) = p; % save slope and offset
   fprintf('%30s | %.3f | %.3f\n', datafile.name, p(1), p(2));
 
   % Since the data skews to either side of the linear fit, I'm separting it
@@ -61,12 +61,58 @@ for i = 1:length(filenames)
 end
 
 % remove unused rows
-slope_bias_spread = slope_bias_spread(slope_bias_spread(:, 1) ~= 999.9, :);
-fprintf('Mean slope: %f deg/s per rad/s, sigma %f\n', mean(slope_bias_spread(:, 1)), ...
-                                                      std(slope_bias_spread(:,  1)));
-fprintf('Mean bias: %f deg/s at 0 rad/s, sigma %f\n', mean(slope_bias_spread(:, 2)), ...
-                                                      std(slope_bias_spread(:,  2)));
+slope_bias = slope_bias(slope_bias(:, 1) ~= 999.9, :);
+mean_slope = mean(slope_bias(:, 1));
+mean_bias  = std(slope_bias(:, 2));
+fprintf('Mean slope: %f deg/s per rad/s, sigma %f\n', mean(slope_bias(:, 1)), ...
+                                                      std(slope_bias(:,  1)));
+fprintf('Mean bias: %f deg/s at 0 rad/s, sigma %f\n', mean(slope_bias(:, 2)), ...
+                                                      std(slope_bias(:,  2)));
 disp(' ');
+
+% plot the angular rate and position of each trial
+for i = 1:length(filenames)
+  datafile = filenames(i);
+  fname    = strcat(datafile.folder, '/', datafile.name);
+
+  if contains(fname, 'RWHEEL') % skip reaction wheel tests
+    continue
+  end
+
+  % Time (s)  Gyro Output [deg/s] Input Rate [rad/s]
+  data = load(fname);
+  time = data(:, 1); % seconds
+  gyro = data(:, 2); % reaction gyro movement (deg/s)
+
+  % correction equation, base movement as a function of gyro measurements
+  omega = @(g) (g - mean_bias)/mean_slope;
+
+  % only look at part where gyro is moving quickly
+  idx   = abs(gyro) > 5; % more than 5 rad/s
+  time  = time(idx);
+  gyro  = gyro(idx);
+  omega = omega(gyro); % apply correct factor
+
+
+  % each theta at a given t is an integral of omega from the beginning of measurement
+  % to that time t, so we have to perform a ton of integrals here
+  f = fit(time, omega, 'smoothingspline');
+  theta = zeros(length(time), 1);
+  for i = 2:length(time)
+    % quick optimization - only integrate over the new interval and add that to the
+    % previous value
+    theta(i) = theta(i-1) + integral(@(t) f(t), time(i - 1), time(i), 'ArrayValued', true);
+  end
+
+  % make some plots
+  figure; hold on; grid on;
+  plot(time, omega, 'DisplayName', '\omega (rad/s)');
+  plot(time, theta, 'DisplayName', '\theta (rad)')
+  legend('show');
+  print(['img/', datafile.name, '-img-omega-theta'], '-dpng')
+  close
+end
+
 
 %  reaction wheel tests
 for i = 1:length(filenames)

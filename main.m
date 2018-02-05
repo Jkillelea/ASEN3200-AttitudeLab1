@@ -87,6 +87,7 @@ for i = 1:length(filenames)
   figure; hold on; grid on;
   plot(time, omega, 'DisplayName', '\omega (rad/s)');
   plot(time, theta, 'DisplayName', '\theta (rad)')
+  xlabel('Time [ms]');
   legend('show');
   print(['img/', datafile.name, '-img-omega-theta'], '-dpng')
   close
@@ -130,7 +131,7 @@ for i = 1:length(filenames)
   torque = mean(actual_torque(idx));
   alpha  = p(1);
   I      = torque/alpha;
-  
+
   xlabel('Time [ms]');
   title(escape(datafile.name));
   legend('show', 'location', 'southeast');
